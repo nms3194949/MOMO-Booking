@@ -13,6 +13,23 @@
     .bg-gold { background-color: #C9A227; color: #000; }
     .bg-gold:hover { background-color: #b08d21; }
     
+    /* 月曆樣式 */
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+    .calendar-day-header { color: #6b7280; font-size: 0.8rem; padding-bottom: 8px; }
+    .calendar-day { 
+      height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      border-radius: 50%; cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .calendar-day:hover { background-color: #21262d; }
+    .calendar-day.active { background-color: #C9A227; color: black; font-weight: bold; }
+    .calendar-day.disabled { color: #30363d; pointer-events: none; }
+    .has-slot-dot {
+      width: 4px; height: 4px; background-color: #C9A227; border-radius: 50%; position: absolute; bottom: 4px;
+    }
+    .calendar-day.active .has-slot-dot { background-color: black; }
+
+    /* 時段卡片 */
     .slot-card {
       background-color: #161b22; 
       border: 1px solid #30363d;
@@ -42,26 +59,50 @@
 </head>
 <body class="min-h-screen flex flex-col items-center p-4">
 
-  <div class="mt-8 mb-6 text-center">
-    <div class="w-20 h-20 mx-auto rounded-full border-2 border-gold flex items-center justify-center bg-gray-900 shadow-lg">
-      <span class="text-3xl">M</span>
+  <div class="mt-4 mb-6 text-center">
+    <div class="w-24 h-24 mx-auto rounded-full border-2 border-gold flex items-center justify-center bg-gray-900 shadow-lg overflow-hidden">
+      <img src="https://nms3194949.github.io/momo-magnet/LOGO_300300.png" alt="Logo" class="w-full h-full object-cover">
     </div>
     <h1 class="text-2xl font-bold mt-4 tracking-wider text-white">MOMO <span class="gold-text">FinSphere</span></h1>
     <p class="text-gray-500 text-sm mt-1">VIP 專屬預約系統</p>
   </div>
 
   <div class="w-full max-w-md mb-6">
-    <h3 class="text-lg font-bold mb-3 border-l-4 border-gold pl-3 text-white">1. 選擇預約時段</h3>
-    <div id="slots-container" class="space-y-3">
-      <div class="text-center py-8 text-gray-500 flex flex-col items-center">
-        <div class="loader mb-2"></div>
-        載入時段中...
+    <h3 class="text-lg font-bold mb-4 border-l-4 border-gold pl-3 text-white">1. 選擇日期</h3>
+    
+    <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+      <div class="calendar-header">
+        <button onclick="changeMonth(-1)" class="text-gray-400 hover:text-white px-2">&lt;</button>
+        <span id="currentMonthLabel" class="font-bold text-lg text-gold-500">Loading...</span>
+        <button onclick="changeMonth(1)" class="text-gray-400 hover:text-white px-2">&gt;</button>
+      </div>
+      
+      <div class="calendar-grid mb-2">
+        <div class="calendar-day-header">日</div>
+        <div class="calendar-day-header">一</div>
+        <div class="calendar-day-header">二</div>
+        <div class="calendar-day-header">三</div>
+        <div class="calendar-day-header">四</div>
+        <div class="calendar-day-header">五</div>
+        <div class="calendar-day-header">六</div>
+      </div>
+      
+      <div id="calendar-days" class="calendar-grid">
+        <div class="col-span-7 py-4 text-center">
+             <div class="loader mx-auto"></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="w-full max-w-md mb-8 opacity-50 pointer-events-none transition" id="form-section">
-    <h3 class="text-lg font-bold mb-3 border-l-4 border-gold pl-3 text-white">2. 填寫聯絡資訊</h3>
+  <div id="slots-section" class="w-full max-w-md mb-6 hidden">
+    <h3 class="text-lg font-bold mb-3 border-l-4 border-gold pl-3 text-white">2. 選擇時段</h3>
+    <div id="slots-container" class="space-y-3">
+       </div>
+  </div>
+
+  <div class="w-full max-w-md mb-8 hidden" id="form-section">
+    <h3 class="text-lg font-bold mb-3 border-l-4 border-gold pl-3 text-white">3. 填寫聯絡資訊</h3>
     <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4">
       
       <div>
@@ -91,75 +132,147 @@
   </div>
 
   <script>
-    // 👇👇👇 請在這裡貼上您的 GAS Web App URL 👇👇👇
+    // 👇👇👇 請確認您的 GAS API 網址是否正確 👇👇👇
     const API_URL = "https://script.google.com/macros/s/AKfycbx8sk537G4UQc_DOFI-KCK4Ea5jzb4FKoWim867NMoLRt4r5pOCACam5LrjyaC6pZkt/exec";
 
+    let allSlots = []; // 存所有從 API 抓回來的時段
+    let currentYear, currentMonth;
     let selectedSlotId = null;
 
-    // 頁面載入時取得時段
     window.onload = function() {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
       fetchSlots();
     };
 
+    // 1. 抓取資料
     function fetchSlots() {
-      // 送出 POST 請求 action: getSlots
       fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({ action: "getSlots" })
       })
       .then(res => res.json())
       .then(data => {
-        renderSlots(data.slots);
+        allSlots = data.slots || [];
+        renderCalendar(currentYear, currentMonth);
       })
       .catch(err => {
-        document.getElementById('slots-container').innerHTML = `<div class="text-red-500 text-center">載入失敗，請重新整理</div>`;
-        console.error(err);
+        document.getElementById('calendar-days').innerHTML = `<div class="col-span-7 text-red-500">連線失敗，請重新整理</div>`;
       });
     }
 
-    function renderSlots(slots) {
-      const container = document.getElementById('slots-container');
-      container.innerHTML = "";
+    // 2. 渲染月曆
+    function renderCalendar(year, month) {
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      const startingDay = firstDay.getDay(); // 0(Sun) - 6(Sat)
 
-      if (!slots || slots.length === 0) {
-        container.innerHTML = `<div class="text-gray-500 text-center py-4">目前無開放時段</div>`;
-        return;
+      // 更新標題
+      document.getElementById('currentMonthLabel').innerText = `${year}年 ${month + 1}月`;
+
+      const calendarDiv = document.getElementById('calendar-days');
+      calendarDiv.innerHTML = "";
+
+      // 找出這個月有哪些天有空位 (為了畫金色小點點)
+      const availableDates = new Set();
+      allSlots.forEach(slot => {
+        const d = new Date(slot.time);
+        if (d.getFullYear() === year && d.getMonth() === month && slot.left > 0) {
+          availableDates.add(d.getDate());
+        }
+      });
+
+      // 填補前面的空白格子
+      for (let i = 0; i < startingDay; i++) {
+        calendarDiv.innerHTML += `<div></div>`;
       }
 
+      // 填入日期
+      for (let day = 1; day <= daysInMonth; day++) {
+        const hasSlot = availableDates.has(day);
+        const dayDiv = document.createElement('div');
+        dayDiv.className = `calendar-day ${hasSlot ? '' : 'disabled'}`;
+        dayDiv.innerHTML = `${day} ${hasSlot ? '<span class="has-slot-dot"></span>' : ''}`;
+        
+        if (hasSlot) {
+          dayDiv.onclick = () => selectDate(year, month, day, dayDiv);
+        }
+        
+        calendarDiv.appendChild(dayDiv);
+      }
+    }
+
+    // 切換月份
+    function changeMonth(offset) {
+      currentMonth += offset;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar(currentYear, currentMonth);
+      // 切換月份時，隱藏下方區塊
+      document.getElementById('slots-section').classList.add('hidden');
+      document.getElementById('form-section').classList.add('hidden');
+    }
+
+    // 3. 點擊日期 -> 顯示時段
+    function selectDate(year, month, day, el) {
+      // 樣式處理
+      document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('active'));
+      el.classList.add('active');
+
+      // 篩選當天的時段
+      const targetDateStr = `${year}-${month+1}-${day}`; // 簡單比對用
+      
+      const daySlots = allSlots.filter(slot => {
+        const d = new Date(slot.time);
+        return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year && slot.left > 0;
+      });
+
+      renderSlots(daySlots);
+    }
+
+    function renderSlots(slots) {
+      const section = document.getElementById('slots-section');
+      const container = document.getElementById('slots-container');
+      section.classList.remove('hidden');
+      document.getElementById('form-section').classList.add('hidden'); // 重選日期時隱藏表單
+      
+      container.innerHTML = "";
+
       slots.forEach(slot => {
-        const div = document.createElement('div');
-        // 格式化日期
         const timeObj = new Date(slot.time);
-        const dateStr = `${timeObj.getMonth()+1}/${timeObj.getDate()} (${['日','一','二','三','四','五','六'][timeObj.getDay()]})`;
         const timeStr = `${String(timeObj.getHours()).padStart(2,'0')}:${String(timeObj.getMinutes()).padStart(2,'0')}`;
 
+        const div = document.createElement('div');
         div.className = "slot-card p-4 rounded-lg cursor-pointer flex justify-between items-center";
         div.innerHTML = `
           <div>
-            <div class="font-bold text-lg text-white">${dateStr} ${timeStr}</div>
+            <div class="font-bold text-lg text-white">${timeStr}</div>
             <div class="text-sm text-gray-400">${slot.title}</div>
           </div>
           <div class="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">剩 ${slot.left} 位</div>
         `;
-        
         div.onclick = () => selectSlot(div, slot.id);
         container.appendChild(div);
       });
+      
+      // 自動捲動到時段區
+      section.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    // 4. 點擊時段 -> 顯示表單
     function selectSlot(el, id) {
-      // 移除其他選擇樣式
       document.querySelectorAll('.slot-card').forEach(c => c.classList.remove('selected'));
-      // 加上目前選擇樣式
       el.classList.add('selected');
       selectedSlotId = id;
       
-      // 啟用下方表單
       const form = document.getElementById('form-section');
-      form.classList.remove('opacity-50', 'pointer-events-none');
+      form.classList.remove('hidden');
       form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // 5. 送出預約
     function submitBooking() {
       const name = document.getElementById('name').value.trim();
       const phone = document.getElementById('phone').value.trim();
@@ -171,7 +284,7 @@
       const btn = document.getElementById('submitBtn');
       const originalText = btn.innerText;
       btn.disabled = true;
-      btn.innerHTML = `<div class="loader border-gray-800 border-t-black"></div>`; // 按鈕變轉圈圈
+      btn.innerHTML = `<div class="loader border-gray-800 border-t-black"></div>`; 
 
       const payload = {
         action: "booking",
@@ -181,7 +294,6 @@
 
       fetch(API_URL, {
         method: "POST",
-        // 💡 關鍵：使用 text/plain 避免 CORS 預檢請求失敗
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       })
@@ -189,7 +301,7 @@
       .then(response => {
         if (response.success) {
           alert("✅ 預約成功！請查看您的信箱。");
-          location.href = "check.html"; // 跳轉到查詢頁
+          location.href = "check.html"; 
         } else {
           alert("❌ 失敗：" + response.msg);
           btn.disabled = false;
