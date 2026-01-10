@@ -8,14 +8,9 @@
   <style>
     body { background-color: #0d1117; color: #e0e0e0; font-family: 'Helvetica Neue', Arial, sans-serif; }
     
-    input::placeholder {
-      color: rgba(255, 255, 255, 0.7) !important;
-      opacity: 1;
-    }
+    input::placeholder { color: rgba(255, 255, 255, 0.7) !important; opacity: 1; }
     input[type="text"], input[type="tel"] {
-      color: #ffffff !important;
-      background-color: #1f2937;
-      border: 1px solid #374151;
+      color: #ffffff !important; background-color: #1f2937; border: 1px solid #374151;
     }
 
     .card { background-color: #161b22; border: 1px solid #30363d; }
@@ -25,18 +20,21 @@
     .btn-red:hover { background-color: #ef4444; color: white; }
     
     .loader {
-      border: 3px solid transparent;
-      border-top: 3px solid #C9A227;
-      border-radius: 50%;
-      width: 20px; height: 20px;
-      animation: spin 1s linear infinite;
+      border: 3px solid transparent; border-top: 3px solid #C9A227; border-radius: 50%;
+      width: 20px; height: 20px; animation: spin 1s linear infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="flex flex-col items-center min-h-screen p-4">
 
-  <div class="max-w-md w-full card rounded-lg shadow-lg p-6 mt-10">
+  <div class="mt-8 mb-6 text-center">
+    <div class="w-20 h-20 mx-auto rounded-full border-2 border-yellow-600 flex items-center justify-center bg-gray-900 shadow-lg overflow-hidden">
+      <img src="https://nms3194949.github.io/momo-magnet/LOGO_300300.png" alt="Logo" class="w-full h-full object-cover">
+    </div>
+  </div>
+
+  <div class="max-w-md w-full card rounded-lg shadow-lg p-6">
     <div class="text-center mb-6">
       <h2 class="text-2xl font-bold text-yellow-500 mb-2">🔍 我的預約查詢</h2>
       <p class="text-gray-400 text-sm">輸入手機號碼以管理您的行程</p>
@@ -44,8 +42,7 @@
 
     <div class="flex gap-2 mb-6">
       <input 
-        type="tel" 
-        id="phoneInput" 
+        type="tel" id="phoneInput" 
         class="w-full p-3 rounded outline-none focus:border-yellow-500 transition" 
         placeholder="請輸入手機號碼 (例如 0912345678)"
       >
@@ -54,8 +51,7 @@
       </button>
     </div>
 
-    <div id="resultArea" class="space-y-4">
-      </div>
+    <div id="resultArea" class="space-y-4"></div>
     
     <div class="mt-8 text-center">
        <a href="index.html" class="text-gray-400 hover:text-white text-sm">← 返回預約首頁</a>
@@ -63,7 +59,7 @@
   </div>
 
   <script>
-    // 👇👇👇 請在這裡貼上您的 GAS Web App URL 👇👇👇
+    // 👇👇👇 這裡請確認 API 網址 👇👇👇
     const API_URL = "https://script.google.com/macros/s/AKfycbx8sk537G4UQc_DOFI-KCK4Ea5jzb4FKoWim867NMoLRt4r5pOCACam5LrjyaC6pZkt/exec";
 
     function search() {
@@ -72,10 +68,7 @@
       
       setLoading(true);
       
-      const payload = {
-        action: "check",
-        phone: phone
-      };
+      const payload = { action: "check", phone: phone };
 
       fetch(API_URL, {
         method: "POST",
@@ -85,27 +78,19 @@
       .then(res => res.json())
       .then(response => {
         setLoading(false);
-        if (response.success) {
-          renderResults(response.bookings);
-        } else {
-          alert("查詢失敗：" + response.msg);
-        }
+        if (response.success) { renderResults(response.bookings); } 
+        else { alert("查詢失敗：" + response.msg); }
       })
-      .catch(err => {
-        setLoading(false);
-        alert("連線錯誤：" + err);
-      });
+      .catch(err => { setLoading(false); alert("連線錯誤：" + err); });
     }
 
     function renderResults(bookings) {
       const area = document.getElementById('resultArea');
       area.innerHTML = "";
-
       if (!bookings || bookings.length === 0) {
         area.innerHTML = `<div class="text-center text-gray-500 py-4">查無有效預約紀錄</div>`;
         return;
       }
-
       bookings.forEach(b => {
         const div = document.createElement('div');
         div.className = "card p-4 rounded flex justify-between items-center";
@@ -114,9 +99,7 @@
             <div class="font-bold text-lg text-white">${b.timeStr}</div>
             <div class="text-xs px-2 py-1 mt-1 inline-block rounded border border-yellow-600 text-yellow-500">已預約</div>
           </div>
-          <button onclick="cancelBooking('${b.slotId}')" class="btn-red px-3 py-1 rounded text-sm transition">
-            取消
-          </button>
+          <button onclick="cancelBooking('${b.slotId}')" class="btn-red px-3 py-1 rounded text-sm transition">取消</button>
         `;
         area.appendChild(div);
       });
@@ -125,45 +108,21 @@
     function cancelBooking(slotId) {
       if (!confirm("確定要取消此預約嗎？")) return;
       const phone = document.getElementById('phoneInput').value.trim();
-      
       setLoading(true);
-
-      const payload = {
-        action: "cancel",
-        phone: phone,
-        slotId: slotId
-      };
-
       fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(response => {
+        method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "cancel", phone: phone, slotId: slotId })
+      }).then(res => res.json()).then(response => {
         setLoading(false);
-        if (response.success) {
-          alert("✅ " + response.msg);
-          search(); // 重新整理列表
-        } else {
-          alert("❌ " + response.msg);
-        }
-      })
-      .catch(err => {
-        setLoading(false);
-        alert("系統錯誤：" + err);
-      });
+        if (response.success) { alert("✅ " + response.msg); search(); } 
+        else { alert("❌ " + response.msg); }
+      }).catch(err => { setLoading(false); alert("系統錯誤：" + err); });
     }
 
     function setLoading(isLoading) {
       const btn = document.getElementById('searchBtn');
-      if (isLoading) {
-        btn.disabled = true;
-        btn.innerHTML = `<div class="loader"></div>`;
-      } else {
-        btn.disabled = false;
-        btn.innerText = "查詢";
-      }
+      if (isLoading) { btn.disabled = true; btn.innerHTML = `<div class="loader"></div>`; } 
+      else { btn.disabled = false; btn.innerText = "查詢"; }
     }
   </script>
 </body>
